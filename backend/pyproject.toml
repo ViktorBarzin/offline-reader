@@ -1,0 +1,56 @@
+[tool.poetry]
+name = "offline-reader-api"
+version = "0.1.0"
+description = "FastAPI backend for offline-reader — capture whole websites as self-contained pages and serve them to an offline PWA"
+authors = ["Viktor Barzin <me@viktorbarzin.me>"]
+readme = "README.md"
+packages = [{ include = "offline_reader_api" }]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+fastapi = "^0.115"
+uvicorn = "^0.32"
+sqlalchemy = { extras = ["asyncio"], version = "^2.0" }
+aiosqlite = "^0.20"
+# Only needed when pointed at Postgres; SQLite (aiosqlite) is the production store (ADR-0004).
+asyncpg = "^0.30"
+httpx = "^0.28"
+prometheus-fastapi-instrumentator = "^7.0"
+anyio = "^4"
+# Official Kubernetes client — the K8sJobRunner creates one Job per Capture (ADR-0002).
+kubernetes = "^31.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3"
+pytest-asyncio = "^0.24"
+mypy = "^1.13"
+ruff = "^0.8"
+hypothesis = "^6"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
+# B008: FastAPI uses Depends()/Query() as default args by design.
+# RUF012: SQLAlchemy/kubernetes class attributes are genuinely class-level, not mutable state.
+ignore = ["B008", "RUF012"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["offline_reader_api", "tests"]
+
+# Third-party libs without type stubs / py.typed markers.
+[[tool.mypy.overrides]]
+module = ["kubernetes.*", "prometheus_fastapi_instrumentator.*"]
+ignore_missing_imports = true
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

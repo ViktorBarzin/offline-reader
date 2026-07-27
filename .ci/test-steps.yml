@@ -1,0 +1,22 @@
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install poetry
+        run: pipx install poetry
+      - name: Backend lint + typecheck + test
+        working-directory: backend
+        run: |
+          poetry install --no-interaction
+          poetry run ruff check .
+          poetry run mypy offline_reader_api tests
+          poetry run pytest -q
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Frontend check + test + build
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run check
+          npm test
+          npm run build

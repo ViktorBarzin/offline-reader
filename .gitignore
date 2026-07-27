@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.db
+*.sqlite3
+
+# Node / SvelteKit
+node_modules/
+/frontend/build/
+/frontend/.svelte-kit/
+/frontend/dist/
+
+# Local capture data (served from NFS in prod)
+/data/
+
+# Env
+.env
+.env.*

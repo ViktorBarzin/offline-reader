@@ -1,0 +1,32 @@
+name: build-capture
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'capture/**'
+      - '.github/workflows/build-capture.yml'
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v7
+        with:
+          context: ./capture
+          file: ./capture/Dockerfile
+          push: true
+          provenance: false
+          platforms: linux/amd64
+          tags: |
+            ghcr.io/viktorbarzin/offline-reader-capture:latest
+            ghcr.io/viktorbarzin/offline-reader-capture:${{ github.sha }}
