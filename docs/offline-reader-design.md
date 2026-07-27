@@ -26,6 +26,30 @@ IndexedDB | native on-device store
 Vocabulary is defined in [CONTEXT.md](../CONTEXT.md) — **Capture**, **Page**, **Crawl**,
 **Scope**, **Library**, **Download**, **Refresh**, **Reader**.
 
+## Execution status — built & deployed (2026-07-27)
+
+> [!NOTE]
+> **Live** at `offline-reader.viktorbarzin.me` (owner-only Authentik SSO), built
+> end-to-end and **server-side verified**: submit → single-file-cli K8s Job crawl →
+> self-contained Pages on NFS → manifest + Page serving. A real capture of `example.com`
+> returned status `done`, title *"Example Domain"* extracted, Page served (200,
+> self-contained). Repo: Forgejo `viktor/offline-reader` (→ GitHub mirror → GHCR images →
+> Woodpecker deploy + Keel); infra stack `infra/stacks/offline-reader/`.
+
+**Remaining — your on-device gate (v1.0.0):** open the PWA on your iPhone, install it,
+download a Capture, and read it in **airplane mode**. The Reader (IndexedDB + sandboxed
+iframe + TOC) is built and unit-tested (37 tests) and served same-origin, but the
+browser/offline behaviour is verified on your device, exactly as the design intended.
+
+**Bugs found + fixed during the deploy** (each committed): frontend `package-lock.json`
+was gitignored (broke `npm ci`); the Dockerfile needed `COPY README.md` before the poetry
+project install; `terragrunt.hcl` used semicolons (invalid HCL, so the stack never
+applied); the app polled `read_namespaced_job_status` (needs a `jobs/status` RBAC
+subresource the Role omits) → switched to `read_namespaced_job`; the capture Job (a
+different uid) couldn't write NFS dirs the app owned → the app now pre-creates them
+world-writable; and Page counting globbed `*.html` while clean URLs yield extension-less
+files → now counts all Page files.
+
 ---
 
 ## Architecture
