@@ -37,11 +37,21 @@ def ensure_capture_dirs(data_dir: str, cid: str) -> None:
             path.chmod(0o777)
 
 
+_NON_PAGE_FILES = {"session.json", "errors.txt"}
+
+
 def count_pages(pages: Path) -> tuple[int, int]:
-    """(number of ``*.html`` Pages, total bytes) — the runner's progress signal."""
+    """(number of captured Pages, total bytes) — the runner's progress signal.
+
+    Counts every regular file in ``pages/`` except the crawl's own bookkeeping
+    (``session.json`` / ``errors.txt``). single-file-cli names Pages from the URL
+    path, and clean URLs (e.g. ``/``) yield extension-less filenames like ``_`` —
+    so globbing ``*.html`` would under-count. The app serves Pages by their
+    manifest filename, so the extension is irrelevant.
+    """
     if not pages.is_dir():
         return (0, 0)
-    files = [f for f in pages.glob("*.html") if f.is_file()]
+    files = [f for f in pages.iterdir() if f.is_file() and f.name not in _NON_PAGE_FILES]
     total = sum(f.stat().st_size for f in files)
     return (len(files), total)
 

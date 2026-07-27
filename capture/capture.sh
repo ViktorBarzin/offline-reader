@@ -39,7 +39,10 @@ mkdir -p "$OUTPUT_DIR"
 echo "capture: seed=$SEED depth=$MAX_DEPTH workers=$WORKERS max_pages=$MAX_PAGES scope=$SCOPE_TYPE"
 
 count_pages() {
-	find "$OUTPUT_DIR" -maxdepth 1 -name '*.html' 2>/dev/null | wc -l
+	# Count every captured Page file, not just *.html: single-file-cli names
+	# Pages from the URL path, so clean URLs (e.g. '/') produce extension-less
+	# names like '_'. Exclude the crawl's own session.json/errors.txt.
+	find "$OUTPUT_DIR" -maxdepth 1 -type f ! -name 'session.json' ! -name 'errors.txt' 2>/dev/null | wc -l
 }
 
 # --crawl flags are verified for single-file-cli v2.0.83 — do not "correct" them.
