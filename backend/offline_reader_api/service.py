@@ -121,6 +121,11 @@ class CaptureService:
     # --- internals ------------------------------------------------------------
     async def _start(self, session: AsyncSession, capture: Capture) -> None:
         try:
+            # Pre-create the per-Capture dir tree world-writable so the capture
+            # Job (a different uid) can write Pages into it over NFS.
+            await anyio.to_thread.run_sync(
+                storage.ensure_capture_dirs, self.settings.data_dir, capture.id
+            )
             job_name = await anyio.to_thread.run_sync(self.runner.start, capture)
             capture.status = "crawling"
             capture.job_name = job_name

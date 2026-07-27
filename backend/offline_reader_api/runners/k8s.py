@@ -127,7 +127,10 @@ class K8sJobRunner:
         if not capture.job_name:
             return CaptureProgress(status="queued", page_count=count, size_bytes=size)
         try:
-            job = self._api().read_namespaced_job_status(
+            # read_namespaced_job (not _status): the full-object read needs only
+            # `get jobs` RBAC; the `_status` variant needs the `jobs/status`
+            # subresource, which the app's namespaced Role deliberately omits.
+            job = self._api().read_namespaced_job(
                 name=capture.job_name, namespace=self.settings.pod_namespace
             )
         except ApiException as exc:
