@@ -14,6 +14,7 @@ WORKDIR /app/backend
 COPY backend/pyproject.toml backend/poetry.lock ./
 RUN poetry install --only main --no-root
 COPY backend/offline_reader_api ./offline_reader_api
+COPY backend/README.md ./README.md
 RUN poetry install --only main
 
 # --- app: runtime (non-root) ---
