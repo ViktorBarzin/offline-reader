@@ -34,6 +34,18 @@ class CaptureCreate(BaseModel):
         return value
 
 
+class IngestCreate(CaptureCreate):
+    """POST /api/ingest request body — the token-authed iOS-Shortcut path.
+
+    Same shape and validation as :class:`CaptureCreate` (notably the http(s) URL
+    check), but ``scope_type`` defaults to ``page``: a shared link is usually a
+    single article, so capture exactly what was shared rather than crawling a
+    prefix.
+    """
+
+    scope_type: ScopeType = "page"
+
+
 class CaptureOut(BaseModel):
     """A Capture as served by the API (summary and detail are the same shape)."""
 

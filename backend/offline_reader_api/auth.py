@@ -22,6 +22,10 @@ class AuthentikUserMiddleware(BaseHTTPMiddleware):
         self, request: StarletteRequest, call_next: RequestResponseEndpoint
     ) -> Response:
         path = request.url.path
+        # /api/ingest does its own token auth (INGEST_TOKEN) and must be
+        # reachable with no Authentik SSO header — exempt it from the check.
+        if path == "/api/ingest":
+            return await call_next(request)
         if path == "/api" or path.startswith("/api/"):
             username = request.headers.get(USERNAME_HEADER) or get_settings().dev_user
             if not username:

@@ -25,6 +25,9 @@ class Settings:
       ``data_dir``; a tmp file in tests, ``/data/offline-reader.db`` in prod.
     - ``dev_user``: ``DEV_USER`` — dev-only identity fallback when Authentik's
       forward-auth header is absent (never set in production).
+    - ``ingest_token``: ``INGEST_TOKEN`` — shared secret for the token-authed
+      ``POST /api/ingest`` endpoint (the iOS Shortcut path, which bypasses the
+      Authentik SSO login). ``None``/empty disables the endpoint (503).
     - ``capture_mode``: ``CAPTURE_MODE`` — ``fake`` (default, no cluster) or
       ``k8s`` (one ``single-file-cli`` Job per Capture).
     - ``max_depth`` / ``workers`` / ``wait_ms``: per-Job crawl tuning knobs.
@@ -37,6 +40,7 @@ class Settings:
     data_dir: str = DEFAULT_DATA_DIR
     db_dsn: str = DEFAULT_DB_DSN
     dev_user: str | None = None
+    ingest_token: str | None = None
     capture_mode: str = "fake"
     fake_auto_complete: bool = False
     max_depth: int = 3
@@ -60,6 +64,7 @@ def get_settings() -> Settings:
         data_dir=data_dir,
         db_dsn=os.environ.get("OFFLINE_READER_DB_DSN", _db_dsn_for(data_dir)),
         dev_user=os.environ.get("DEV_USER"),
+        ingest_token=os.environ.get("INGEST_TOKEN"),
         capture_mode=os.environ.get("CAPTURE_MODE", "fake"),
         fake_auto_complete=os.environ.get("FAKE_AUTO_COMPLETE", "").lower()
         in ("1", "true", "yes"),

@@ -22,6 +22,7 @@ from offline_reader_api.errors import install_error_handlers
 from offline_reader_api.logging_setup import configure_logging
 from offline_reader_api.poller import poll_loop
 from offline_reader_api.routers import api_router
+from offline_reader_api.routers.ingest import router as ingest_router
 from offline_reader_api.runner import build_runner
 from offline_reader_api.service import CaptureService
 
@@ -104,6 +105,9 @@ def create_app() -> FastAPI:
     Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
 
     app.include_router(api_router, prefix="/api")
+    # Wired separately (not under the identity-gated api_router): /api/ingest
+    # authenticates a token, not the Authentik SSO header (see routers/ingest.py).
+    app.include_router(ingest_router, prefix="/api")
 
     # Serve the built PWA when present — absent in dev (vite proxies to us) and
     # in backend-only test runs. Mounted LAST so /api, /healthz, /metrics win.

@@ -24,6 +24,7 @@ def data_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setenv("CAPTURE_MODE", "fake")
     monkeypatch.setenv("CAPTURE_POLL_INTERVAL_SECONDS", "0")
     monkeypatch.delenv("DEV_USER", raising=False)
+    monkeypatch.delenv("INGEST_TOKEN", raising=False)
     return tmp_path
 
 
