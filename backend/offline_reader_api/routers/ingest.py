@@ -41,5 +41,5 @@ async def ingest_capture(
     presented = token or x_ingest_token
     if not presented or not secrets.compare_digest(presented, expected):
         raise ApiError(401, "unauthorized", "invalid or missing ingest token")
-    capture = await service.create(session, body)
+    capture = await service.create(session, body, source="shortcut")
     return CaptureOut.model_validate(capture)

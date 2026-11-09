@@ -65,6 +65,14 @@ class CaptureOut(BaseModel):
     updated_at: datetime
 
 
+class MeOut(BaseModel):
+    """GET /api/me: the signed-in user, and their Person id for analytics (ADR-0007)."""
+
+    username: str
+    # The Authentik hashed user id; None with the DEV_USER fallback.
+    person_id: str | None
+
+
 class ManifestPage(BaseModel):
     """One Page in a Capture's manifest."""
 

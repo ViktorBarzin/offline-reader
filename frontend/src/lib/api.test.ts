@@ -31,6 +31,13 @@ function opaqueRedirect(): Response {
 }
 
 describe('api requests', () => {
+	it('reads who is signed in from GET /api/me', async () => {
+		fetchMock.mockResolvedValue(jsonResponse({ username: 'viktor', person_id: 'uid-1' }));
+		const me = await api.me();
+		expect(me).toEqual({ username: 'viktor', person_id: 'uid-1' });
+		expect(fetchMock).toHaveBeenCalledWith('/api/me', expect.objectContaining({ redirect: 'manual' }));
+	});
+
 	it('lists captures from GET /api/captures', async () => {
 		fetchMock.mockResolvedValue(jsonResponse([{ id: 'c1' }, { id: 'c2' }]));
 		const list = await api.listCaptures();

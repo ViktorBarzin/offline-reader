@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import FileResponse, Response
 
+from offline_reader_api import product_events
 from offline_reader_api.auth import current_username
 from offline_reader_api.deps import get_service, get_session
 from offline_reader_api.errors import ApiError
@@ -98,6 +99,8 @@ async def get_manifest(
     path = service.manifest_file(cid)
     if capture.status != "done" or not path.is_file():
         raise ApiError(404, "not_ready", "manifest not available")
+    # The PWA fetches the manifest only to Download a Capture onto a device.
+    product_events.download_started(capture)
     return FileResponse(path, media_type="application/json")
 
 

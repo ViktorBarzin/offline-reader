@@ -1,68 +1,56 @@
-"""Structured (JSON-lines) logging.
+"""JSON log lines in the OpenTelemetry field names (ADR-0007, infra ADR-0041).
 
-Every record becomes one JSON object on stderr: ``ts``, ``level``, ``logger``,
-``msg`` plus any ``extra={...}`` fields passed at the call site. Loki-friendly,
-grep-friendly, and zero dependencies.
+One object per line on stdout, written by ``viktorbarzin_telemetry``'s
+formatter: ``timestamp``, ``severity_text``, ``severity_number``, ``body``,
+``logger.name``, ``service.name`` (``offline-reader``), ``service.version``,
+``deployment.environment.name``, ``enduser.id`` while a request from a known
+Person is served, plus any ``extra={...}`` fields as snake_case attributes.
+This replaces the earlier ``ts``/``level``/``logger``/``msg`` lines.
+
+The formatter masks the Write key, bearer tokens, Basic credentials and JWTs,
+and here also ``INGEST_TOKEN``, which an iOS Shortcut sends as ``?token=`` and
+uvicorn's access line would otherwise print.
+
+uvicorn gives its own loggers text handlers before it imports the app; they
+are handed to the root logger so the access and error lines are JSON too.
 """
 
-import json
 import logging
-from datetime import UTC, datetime
-from typing import Any
+import os
+from collections.abc import Mapping
+from typing import TextIO
 
-# logging.LogRecord attributes that are plumbing, not payload.
-_STANDARD_ATTRS = frozenset(
-    {
-        "args",
-        "asctime",
-        "created",
-        "exc_info",
-        "exc_text",
-        "filename",
-        "funcName",
-        "levelname",
-        "levelno",
-        "lineno",
-        "module",
-        "msecs",
-        "msg",
-        "name",
-        "pathname",
-        "process",
-        "processName",
-        "relativeCreated",
-        "stack_info",
-        "taskName",
-        "thread",
-        "threadName",
-    }
-)
+import viktorbarzin_telemetry as telemetry
+
+from offline_reader_api import __version__
+
+APP = "offline-reader"
+
+#: uvicorn's loggers, which it configures with handlers of their own.
+UVICORN_LOGGERS: tuple[str, ...] = ("uvicorn", "uvicorn.error", "uvicorn.access")
 
 
-class JsonFormatter(logging.Formatter):
-    """Render a LogRecord as a single JSON line, carrying ``extra`` fields along."""
-
-    def format(self, record: logging.LogRecord) -> str:
-        payload: dict[str, Any] = {
-            "ts": datetime.fromtimestamp(record.created, tz=UTC).isoformat(),
-            "level": record.levelname,
-            "logger": record.name,
-            "msg": record.getMessage(),
-        }
-        for key, value in record.__dict__.items():
-            if key not in _STANDARD_ATTRS and key not in payload:
-                payload[key] = value
-        if record.exc_info:
-            payload["exc"] = self.formatException(record.exc_info)
-        return json.dumps(payload, default=str)
-
-
-def configure_logging(level: int = logging.INFO) -> None:
-    """Install the JSON formatter on the root logger (idempotent)."""
-    root = logging.getLogger()
-    if any(isinstance(h.formatter, JsonFormatter) for h in root.handlers):
-        return
-    handler = logging.StreamHandler()
-    handler.setFormatter(JsonFormatter())
-    root.addHandler(handler)
-    root.setLevel(level)
+def configure_logging(
+    env: Mapping[str, str] | None = None,
+    *,
+    stream: TextIO | None = None,
+    level: int = logging.INFO,
+) -> logging.Handler:
+    """Make every log line JSON, on stdout or ``stream``. Returns the handler."""
+    values = os.environ if env is None else env
+    environment = values.get(telemetry.ENVIRONMENT_VARIABLE, "").strip() or None
+    ingest_token = values.get("INGEST_TOKEN", "").strip()
+    handler = telemetry.setup_logging(
+        service_name=APP,
+        service_version=__version__,
+        environment=environment,
+        level=level,
+        stream=stream,
+        secrets=[ingest_token] if ingest_token else [],
+    )
+    for name in UVICORN_LOGGERS:
+        named = logging.getLogger(name)
+        for existing in list(named.handlers):
+            named.removeHandler(existing)
+        named.propagate = True
+    return handler

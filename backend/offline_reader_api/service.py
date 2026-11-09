@@ -16,7 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from offline_reader_api import manifest as manifest_mod
-from offline_reader_api import storage
+from offline_reader_api import product_events, storage
 from offline_reader_api.config import Settings
 from offline_reader_api.models import Capture
 from offline_reader_api.runner import CaptureRunner
@@ -34,8 +34,17 @@ class CaptureService:
         self.settings = settings
         self.runner = runner
 
-    async def create(self, session: AsyncSession, req: CaptureCreate) -> Capture:
-        """Create a queued Capture, then start its crawl (-> crawling)."""
+    async def create(
+        self,
+        session: AsyncSession,
+        req: CaptureCreate,
+        *,
+        source: product_events.Source = "web",
+    ) -> Capture:
+        """Create a queued Capture, then start its crawl (-> crawling).
+
+        ``source`` says where it was asked for, for the ``capture.requested``
+        Product event (ADR-0007)."""
         capture = Capture(
             id=uuid.uuid4().hex,
             root_url=req.url,
@@ -48,6 +57,11 @@ class CaptureService:
         )
         session.add(capture)
         await session.commit()
+        logger.info(
+            "capture requested",
+            extra={"capture_id": capture.id, "scope_type": capture.scope_type, "source": source},
+        )
+        product_events.capture_requested(capture, source=source)
         await self._start(session, capture)
         return capture
 
@@ -77,10 +91,16 @@ class CaptureService:
         else:
             capture.status = "crawling"
         await session.commit()
+        # Terminal is sticky, so each Capture's crawl reports its end once.
+        if capture.status == "done":
+            product_events.capture_completed(capture)
+        elif capture.status == "failed":
+            product_events.capture_failed(capture, stage="crawl")
         return capture
 
     async def delete(self, session: AsyncSession, capture: Capture) -> None:
         """Cancel the crawl (best effort), delete the files, drop the row."""
+        product_events.capture_deleted(capture)
         await anyio.to_thread.run_sync(self._cancel_quietly, capture)
         await anyio.to_thread.run_sync(storage.remove_capture, self.settings.data_dir, capture.id)
         await session.delete(capture)
@@ -96,6 +116,7 @@ class CaptureService:
         capture.error = None
         capture.job_name = None
         await session.commit()
+        product_events.capture_refreshed(capture)
         await self._start(session, capture)
         return capture
 
@@ -135,6 +156,8 @@ class CaptureService:
             capture.status = "failed"
             capture.error = f"failed to start capture: {exc}"
         await session.commit()
+        if capture.status == "failed":
+            product_events.capture_failed(capture, stage="start")
 
     def _build_manifest(self, capture: Capture) -> Manifest:
         return manifest_mod.build_manifest(

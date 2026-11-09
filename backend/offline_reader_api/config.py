@@ -4,6 +4,8 @@ import os
 from dataclasses import dataclass
 
 USERNAME_HEADER = "X-Authentik-Username"
+# The Authentik hashed user id, set by the same forward-auth: the Person id.
+PERSON_HEADER = "X-Authentik-Uid"
 DEFAULT_DATA_DIR = "/data"
 
 

@@ -25,6 +25,9 @@ def data_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setenv("CAPTURE_POLL_INTERVAL_SECONDS", "0")
     monkeypatch.delenv("DEV_USER", raising=False)
     monkeypatch.delenv("INGEST_TOKEN", raising=False)
+    # Telemetry stays off unless a test turns it on with a recorder (ADR-0007).
+    for name in ("TELEMETRY_WRITE_KEY", "TELEMETRY_HOST", "TELEMETRY_ENVIRONMENT", "SENTRY_DSN"):
+        monkeypatch.delenv(name, raising=False)
     return tmp_path
 
 

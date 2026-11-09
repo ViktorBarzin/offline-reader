@@ -9,7 +9,7 @@
  * masquerades as a corrupt API reply.
  */
 import { API_BASE } from './config';
-import type { Capture, CreateCaptureBody, Manifest } from './types';
+import type { Capture, CreateCaptureBody, Manifest, Me } from './types';
 
 export class ApiError extends Error {
 	constructor(
@@ -56,6 +56,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+	/** GET /api/me — who is signed in, for naming the Person to analytics. */
+	me(): Promise<Me> {
+		return request<Me>('/me');
+	},
+
 	/** GET /api/captures — the Library list. */
 	listCaptures(): Promise<Capture[]> {
 		return request<Capture[]>('/captures');

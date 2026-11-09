@@ -19,6 +19,7 @@ prometheus-fastapi-instrumentator = "^8.1"
 anyio = "^4"
 # Official Kubernetes client — the K8sJobRunner creates one Job per Capture (ADR-0002).
 kubernetes = "^31.0"
+viktorbarzin-telemetry = {version = "0.1.0", extras = ["sentry"]}
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3"

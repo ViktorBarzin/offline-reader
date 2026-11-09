@@ -14,9 +14,10 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import FileResponse, Response
 from starlette.staticfiles import StaticFiles
 from starlette.types import Scope
+from viktorbarzin_telemetry import EnduserMiddleware
 
-from offline_reader_api import __version__, db
-from offline_reader_api.auth import AuthentikUserMiddleware
+from offline_reader_api import __version__, db, product_events
+from offline_reader_api.auth import AuthentikUserMiddleware, person_id
 from offline_reader_api.config import get_settings
 from offline_reader_api.errors import install_error_handlers
 from offline_reader_api.logging_setup import configure_logging
@@ -78,6 +79,8 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
             with contextlib.suppress(asyncio.CancelledError):
                 await poller_task
         await engine.dispose()
+        # Last, so events sent during shutdown go out too.
+        product_events.flush()
 
 
 def create_app() -> FastAPI:
@@ -86,7 +89,11 @@ def create_app() -> FastAPI:
     Docs/schema live UNDER /api so the forward-auth-gated ingress covers them —
     the public root ("/") is the PWA, and root-level /docs would leak the schema.
     """
+    # JSON lines in the OpenTelemetry field names, and Product events and error
+    # reports when the environment turns them on (ADR-0007). Sentry starts
+    # before the app exists, so its FastAPI integration sees every route.
     configure_logging()
+    product_events.start(os.environ)
     app = FastAPI(
         title="offline-reader",
         version=__version__,
@@ -96,6 +103,9 @@ def create_app() -> FastAPI:
         openapi_url="/api/openapi.json",
     )
     app.add_middleware(AuthentikUserMiddleware)
+    # Added last, so it is outermost: `enduser.id` on every log line and the
+    # userId of every Product event of a request from a known Person.
+    app.add_middleware(EnduserMiddleware, resolve_user=person_id)
     install_error_handlers(app)
 
     @app.get("/healthz", include_in_schema=False)

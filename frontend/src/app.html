@@ -21,6 +21,9 @@
 		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 		<meta name="apple-mobile-web-app-title" content="Reader" />
 
+		<!-- The PWA loads Rybbit itself (src/lib/analytics.ts), so the edge injection
+		     plugin leaves this page alone (ADR-0007). -->
+		<meta name="analytics" content="sdk" />
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">

@@ -2,7 +2,8 @@
 
 from fastapi import APIRouter
 
-from offline_reader_api.routers import captures
+from offline_reader_api.routers import captures, me
 
 api_router = APIRouter()
 api_router.include_router(captures.router)
+api_router.include_router(me.router)

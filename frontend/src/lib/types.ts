@@ -20,6 +20,12 @@ export interface Capture {
 	created_at: string;
 }
 
+/** `GET /api/me`: the signed-in user and their Person id (Authentik `uid`). */
+export interface Me {
+	username: string;
+	person_id: string | null;
+}
+
 /** One page entry in a capture's manifest (the ordered reader TOC). */
 export interface ManifestPage {
 	id: string;
