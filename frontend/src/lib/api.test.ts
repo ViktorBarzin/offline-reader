@@ -31,6 +31,19 @@ function opaqueRedirect(): Response {
 }
 
 describe('api requests', () => {
+	it("sends the browser's Rybbit visitor id on every call", async () => {
+		vi.stubGlobal('localStorage', { getItem: () => 'v-1' });
+		fetchMock.mockResolvedValueOnce(jsonResponse({ username: 'viktor', person_id: null }));
+		await api.me();
+		fetchMock.mockResolvedValueOnce(
+			new Response('<p>page</p>', { headers: { 'content-type': 'text/html' } })
+		);
+		await api.pageBytes('c1', 'p1');
+		for (const [, init] of fetchMock.mock.calls) {
+			expect((init as RequestInit).headers).toMatchObject({ 'X-Visitor-Id': 'v-1' });
+		}
+	});
+
 	it('reads who is signed in from GET /api/me', async () => {
 		fetchMock.mockResolvedValue(jsonResponse({ username: 'viktor', person_id: 'uid-1' }));
 		const me = await api.me();

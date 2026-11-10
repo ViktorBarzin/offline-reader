@@ -7,6 +7,7 @@ import {
 	isProductionHost,
 	loadAnalytics,
 	resetAnalytics,
+	visitorHeaders,
 	type AnalyticsDocument,
 	type AnalyticsWindow,
 	type ScriptElement
@@ -155,5 +156,26 @@ describe('clearPerson', () => {
 		win.rybbit = rybbit;
 		fireLoad(doc);
 		expect(rybbit.identify).not.toHaveBeenCalled();
+	});
+});
+
+describe('visitorHeaders', () => {
+	it("names the browser's Rybbit visitor id once the script has made one", () => {
+		const storage = { getItem: (key: string) => (key === 'rybbit-visitor-id' ? 'v-1' : null) };
+		expect(visitorHeaders(storage)).toEqual({ 'X-Visitor-Id': 'v-1' });
+	});
+
+	it('is empty before the script has run', () => {
+		expect(visitorHeaders({ getItem: () => null })).toEqual({});
+	});
+
+	it('is empty where storage is blocked or missing', () => {
+		const blocked = {
+			getItem: (): string | null => {
+				throw new Error('SecurityError');
+			}
+		};
+		expect(visitorHeaders(blocked)).toEqual({});
+		expect(visitorHeaders(undefined)).toEqual({});
 	});
 });

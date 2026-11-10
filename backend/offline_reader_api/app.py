@@ -14,7 +14,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import FileResponse, Response
 from starlette.staticfiles import StaticFiles
 from starlette.types import Scope
-from viktorbarzin_telemetry import EnduserMiddleware
+from viktorbarzin_telemetry import RequestContextMiddleware
 
 from offline_reader_api import __version__, db, product_events
 from offline_reader_api.auth import AuthentikUserMiddleware, person_id
@@ -104,8 +104,10 @@ def create_app() -> FastAPI:
     )
     app.add_middleware(AuthentikUserMiddleware)
     # Added last, so it is outermost: `enduser.id` on every log line and the
-    # userId of every Product event of a request from a known Person.
-    app.add_middleware(EnduserMiddleware, resolve_user=person_id)
+    # userId of every Product event of a request from a known Person, plus the
+    # browser's `X-Visitor-Id` as the event's anonymousId and the visitor's IP
+    # and User-Agent, so the event joins the browser's person in Rybbit.
+    app.add_middleware(RequestContextMiddleware, resolve_user=person_id)
     install_error_handlers(app)
 
     @app.get("/healthz", include_in_schema=False)

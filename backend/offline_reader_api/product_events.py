@@ -11,11 +11,14 @@ the environment:
 - ``TELEMETRY_ENVIRONMENT``: only ``production`` sends anything.
 - ``SENTRY_DSN``: GlitchTip's DSN for offline-reader. Unset means no reports.
 
-Each event names the Person by the request's Authentik ``uid``
-(``EnduserMiddleware`` puts it on the log context). A Capture shared from the
-iOS Shortcut has no Person, so it carries the fixed anonymous id
-``SHORTCUT_ANONYMOUS_ID``. Properties name the captured site's host and never
-its path, query, title or an error text, which can carry a token.
+Each event names the Person by the request's Authentik ``uid``, and its
+anonymousId is the browser's Rybbit visitor id from ``X-Visitor-Id``
+(``RequestContextMiddleware`` puts both, and the visitor's IP and User-Agent,
+on the request context). A Capture shared from the iOS Shortcut has no Person,
+so it carries the fixed anonymous id ``SHORTCUT_ANONYMOUS_ID``. An event sent
+outside a request, by the poller, carries the library's ``server:offline-reader``.
+Properties name the captured site's host and never its path, query, title or an
+error text, which can carry a token.
 
 Every helper here returns at once and never raises: an event is worth less
 than the request it rides on.

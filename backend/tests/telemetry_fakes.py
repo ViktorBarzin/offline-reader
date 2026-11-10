@@ -16,7 +16,8 @@ class Sent:
     event: str
     properties: dict[str, telemetry.JsonValue]
     user_id: str | None
-    anonymous_id: str
+    anonymous_id: str | None
+    context: dict[str, telemetry.JsonValue] = field(default_factory=dict)
 
 
 @dataclass
@@ -33,9 +34,9 @@ class FakeEvents:
         event: str,
         properties: dict[str, telemetry.JsonValue],
         context: dict[str, telemetry.JsonValue],
-        anonymous_id: str,
+        anonymous_id: str | None,
     ) -> object:
-        self.tracks.append(Sent(event, properties, user_id, anonymous_id))
+        self.tracks.append(Sent(event, properties, user_id, anonymous_id, context))
         return None
 
     def identify(
@@ -44,7 +45,7 @@ class FakeEvents:
         user_id: str,
         traits: dict[str, telemetry.JsonValue],
         context: dict[str, telemetry.JsonValue],
-        anonymous_id: str,
+        anonymous_id: str | None,
     ) -> object:
         return None
 

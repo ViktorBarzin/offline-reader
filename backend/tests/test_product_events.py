@@ -11,11 +11,26 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from offline_reader_api import product_events
+from offline_reader_api.models import Capture
 from tests.conftest import auth
 from tests.telemetry_fakes import PRODUCTION, FakeEvents
 
 PERSON = "4f1c2b0e9d8a7f6e5d4c3b2a1f0e9d8c7b6a5f4e3d2c1b0a9f8e7d6c5b4a3f2e"
 TOKEN = "sh0rtcut-shared-secret"
+
+
+def _capture() -> Capture:
+    """A Capture as the background poller sees it: no request, no Person."""
+    return Capture(
+        id="abc123def456",
+        root_url="https://docs.example.com/",
+        title="https://docs.example.com/",
+        scope_type="prefix",
+        max_pages=50,
+        status="crawling",
+        page_count=0,
+        size_bytes=0,
+    )
 
 
 def signed_in(person: str | None = PERSON) -> dict[str, str]:
@@ -79,6 +94,45 @@ def test_a_web_capture_is_requested_by_the_signed_in_person(
         "max_pages": 50,
         "site": "docs.example.com",
     }
+
+
+def test_a_web_event_joins_the_browsers_visitor_and_carries_its_ip_and_agent(
+    client: TestClient, events: FakeEvents
+) -> None:
+    agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) Safari/605.1.15"
+    response = client.post(
+        "/api/captures",
+        json={"url": "https://docs.example.com/guide/"},
+        headers={
+            **signed_in(),
+            "X-Visitor-Id": "visitor-123",
+            "X-Real-Ip": "81.2.69.142",
+            "User-Agent": agent,
+        },
+    )
+    assert response.status_code == 201, response.text
+    [sent] = events.named(product_events.CAPTURE_REQUESTED)
+    assert sent.user_id == PERSON
+    assert sent.anonymous_id == "visitor-123"
+    assert sent.context["ip"] == "81.2.69.142"
+    assert sent.context["userAgent"] == agent
+
+
+def test_a_signed_in_event_without_a_visitor_id_invents_no_anonymous_id(
+    client: TestClient, events: FakeEvents
+) -> None:
+    _create(client)
+    _create(client)
+    sent = events.named(product_events.CAPTURE_REQUESTED)
+    assert [s.anonymous_id for s in sent] == [None, None]
+
+
+def test_an_event_outside_a_request_uses_the_stable_server_id(events: FakeEvents) -> None:
+    product_events.capture_failed(_capture(), stage="crawl")
+    product_events.capture_failed(_capture(), stage="crawl")
+    sent = events.named(product_events.CAPTURE_FAILED)
+    assert [s.anonymous_id for s in sent] == ["server:offline-reader"] * 2
+    assert [s.user_id for s in sent] == [None, None]
 
 
 def test_a_shortcut_capture_has_no_person_even_with_a_forged_uid(

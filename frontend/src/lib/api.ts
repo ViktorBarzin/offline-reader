@@ -1,13 +1,16 @@
 /**
  * Thin same-origin client for the Offline Reader API (all under `/api`). The PWA
  * is served same-origin behind SSO; the client sends no auth of its own — the
- * session cookie (or the backend's DEV_USER fallback) carries identity.
+ * session cookie (or the backend's DEV_USER fallback) carries identity. Every
+ * call carries `X-Visitor-Id`, the browser's Rybbit visitor id, so the backend's
+ * Product events land on the same Rybbit user (ADR-0007).
  *
  * As in tasks/tripit we use `redirect: 'manual'` so an Authentik forward-auth
  * bounce (a cross-origin 3xx to the SSO login) surfaces as an opaque redirect we
  * can distinguish from real data, rather than being followed into login HTML that
  * masquerades as a corrupt API reply.
  */
+import { visitorHeaders } from './analytics';
 import { API_BASE } from './config';
 import type { Capture, CreateCaptureBody, Manifest, Me } from './types';
 
@@ -41,6 +44,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 		...init,
 		headers: {
 			accept: 'application/json',
+			...visitorHeaders(),
 			...(init?.body ? { 'content-type': 'application/json' } : {}),
 			...init?.headers
 		}
@@ -108,6 +112,7 @@ export const api = {
 		const res = await fetch(this.pageUrl(cid, pid), {
 			credentials: 'same-origin',
 			redirect: 'manual',
+			headers: visitorHeaders(),
 			signal
 		});
 		if (res.type === 'opaqueredirect') throw new AuthWallError();

@@ -59,3 +59,16 @@ follows the same standard through the shared `viktorbarzin-telemetry` 0.1.0 libr
 
 - Whether `X-Authentik-Uid` stays equal to the OIDC `sub` other apps send. It does while those
   apps' providers keep Authentik's default `hashed_user_id` mode.
+
+## Update 2026-11-10: one person per browser (telemetry 0.2.0)
+
+`viktorbarzin-telemetry` 0.1.0 gave every backend event without an anonymousId a new random
+id, so Rybbit counted each anonymous event as a new person. offline-reader moves to 0.2.0 and
+`RequestContextMiddleware` (with the same `person_id` resolver) in place of
+`EnduserMiddleware`: an event sent during a request carries the browser's Rybbit visitor id as
+its anonymousId, the visitor's IP (`X-Real-Ip`) and User-Agent, so it lands on the browser's
+Rybbit user with a country and a device. The PWA's API client sends that id as `X-Visitor-Id`
+(localStorage `rybbit-visitor-id`, read per call) on every request, and the layout already
+calls `rybbit.identify(person_id)` on every app start, not only after sign-in. Events outside a
+request (the optional poller) carry the stable `server:offline-reader`; the iOS Shortcut keeps
+`ios-shortcut`.

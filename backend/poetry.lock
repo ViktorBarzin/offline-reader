@@ -1848,14 +1848,14 @@ standard = ["colorama (>=0.4) ; sys_platform == \"win32\"", "httptools (>=0.6.3)
 
 [[package]]
 name = "viktorbarzin-telemetry"
-version = "0.1.0"
+version = "0.2.0"
 description = "Product events, errors and JSON logs to the viktorbarzin.me telemetry standard"
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "viktorbarzin_telemetry-0.1.0-py3-none-any.whl", hash = "sha256:6f193d0aa84e072877e979e8506b32d3c9c363b530715e3439aa329a9ce0de70"},
-    {file = "viktorbarzin_telemetry-0.1.0.tar.gz", hash = "sha256:85e386bbc832cde734da6bee6a99e12db588ed150571eddd8f16507b70a375b8"},
+    {file = "viktorbarzin_telemetry-0.2.0-py3-none-any.whl", hash = "sha256:50e2e74637f394c46034f20c4c57c04909bc718a91c2668dafba9ca0cf0aacad"},
+    {file = "viktorbarzin_telemetry-0.2.0.tar.gz", hash = "sha256:728afc9036ff3532d7a6e314f25fb8f870fdc955aa2e1849aa19fe92b33bfa0d"},
 ]
 
 [package.dependencies]
@@ -1886,4 +1886,4 @@ test = ["pytest", "websockets"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.12"
-content-hash = "95b8c695ff831fd4285aa4a6fb0d0f3cbf47e0a418bd5ea9a19f265999ceee2d"
+content-hash = "1ca4bfbec86cd975c30726eaa68536eae32827d45b4774486ae29ac1b140911e"

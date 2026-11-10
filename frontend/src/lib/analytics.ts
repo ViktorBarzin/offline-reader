@@ -10,7 +10,10 @@
  *
  * Once `GET /api/me` names the signed-in Person (their Authentik `uid`),
  * `identifyPerson` hands it to Rybbit, so the anonymous visits before join the
- * same Person; `clearPerson` undoes it when the SSO session has gone. Browser
+ * same Person; `clearPerson` undoes it when the SSO session has gone. The layout
+ * does this on every app start, so a returning visitor and the installed PWA's
+ * own storage are named too. `visitorHeaders` puts the script's visitor id on
+ * every API call, so the backend's events join the same Rybbit user. Browser
  * custom events wait for the shared `@viktorbarzin/telemetry` package.
  */
 
@@ -23,6 +26,11 @@ export const PRODUCTION_HOSTS: readonly string[] = Object.freeze([
 export const SITE_ID = '1';
 
 export const SCRIPT_SRC = '/_t/r/script.js';
+
+/** localStorage key where the Rybbit script keeps this browser's visitor id. */
+export const VISITOR_ID_KEY = 'rybbit-visitor-id';
+/** Request header the backend reads the visitor id from (telemetry 0.2.0). */
+export const VISITOR_HEADER = 'X-Visitor-Id';
 
 export interface Rybbit {
 	identify: (id: string) => void;
@@ -97,6 +105,21 @@ export function clearPerson(win: AnalyticsWindow): void {
 	if (named === null) return;
 	named = null;
 	win.rybbit?.clearUserId();
+}
+
+/**
+ * `X-Visitor-Id` for a same-origin API call, read at call time: the id exists
+ * once the Rybbit script has run. Mirrors app-kit's `visitorHeaders()`.
+ */
+export function visitorHeaders(
+	storage: Pick<Storage, 'getItem'> | undefined = globalThis.localStorage
+): Record<string, string> {
+	try {
+		const id = storage?.getItem(VISITOR_ID_KEY);
+		return id ? { [VISITOR_HEADER]: id } : {};
+	} catch {
+		return {};
+	}
 }
 
 /** Forget what this module has done. For tests. */
