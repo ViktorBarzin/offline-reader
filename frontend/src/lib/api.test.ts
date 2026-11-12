@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+const visitorHeaders = vi.hoisted(() => vi.fn((): Record<string, string> => ({})));
+vi.mock('@viktorbarzin/telemetry/browser', () => ({ visitorHeaders }));
+
 import { api, ApiError, AuthWallError } from './api';
 
 let fetchMock: ReturnType<typeof vi.fn>;
@@ -32,7 +35,7 @@ function opaqueRedirect(): Response {
 
 describe('api requests', () => {
 	it("sends the browser's Rybbit visitor id on every call", async () => {
-		vi.stubGlobal('localStorage', { getItem: () => 'v-1' });
+		visitorHeaders.mockReturnValue({ 'X-Visitor-Id': 'v-1' });
 		fetchMock.mockResolvedValueOnce(jsonResponse({ username: 'viktor', person_id: null }));
 		await api.me();
 		fetchMock.mockResolvedValueOnce(

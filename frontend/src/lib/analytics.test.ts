@@ -1,181 +1,149 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+const telemetry = vi.hoisted(() => ({
+	initTelemetry: vi.fn(),
+	reset: vi.fn(),
+	track: vi.fn(),
+	visitorHeaders: vi.fn(() => ({}))
+}));
+vi.mock('@viktorbarzin/telemetry/browser', () => telemetry);
+
+import { checkEvent } from '@viktorbarzin/telemetry';
+
 import {
+	EVENTS,
 	PRODUCTION_HOSTS,
-	clearPerson,
-	identifyPerson,
-	isProductionHost,
-	loadAnalytics,
-	resetAnalytics,
-	visitorHeaders,
-	type AnalyticsDocument,
-	type AnalyticsWindow,
-	type ScriptElement
+	SETTINGS_KEY,
+	SITE_ID,
+	downloadCompleted,
+	downloadInterrupted,
+	pageRead,
+	startTelemetry
 } from './analytics';
+import type { Me } from './types';
 
-interface FakeScript extends ScriptElement {
-	attributes: Record<string, string>;
-	listeners: Record<string, () => void>;
-}
+const SETTINGS = { write_key: 'wk-1', release: '0.1.0' };
+const PERSON = 'uid-1';
 
-/** A document stand-in that records the script elements appended to head. */
-function fakeDocument(): AnalyticsDocument<FakeScript> & { appended: FakeScript[] } {
-	const appended: FakeScript[] = [];
+function memoryStorage(initial: Record<string, string> = {}) {
+	const items = new Map(Object.entries(initial));
 	return {
-		appended,
-		head: { appendChild: (el: FakeScript) => appended.push(el) },
-		createElement: () => {
-			const el: FakeScript = {
-				attributes: {},
-				listeners: {},
-				setAttribute(name, value) {
-					el.attributes[name] = value;
-				},
-				addEventListener(event, listener) {
-					el.listeners[event] = listener;
-				}
-			};
-			return el;
-		}
+		getItem: (key: string) => items.get(key) ?? null,
+		setItem: (key: string, value: string) => void items.set(key, value),
+		removeItem: (key: string) => void items.delete(key),
+		items
 	};
 }
 
-/** The one script the page was given. */
-function onlyScript(doc: { appended: FakeScript[] }): FakeScript {
-	expect(doc.appended).toHaveLength(1);
-	const [script] = doc.appended;
-	if (!script) throw new Error('no script added');
-	return script;
+function me(overrides: Partial<Me> = {}): Me {
+	return { username: 'viktor', person_id: PERSON, telemetry: SETTINGS, ...overrides };
 }
 
-/** The script finished loading. */
-function fireLoad(doc: { appended: FakeScript[] }): void {
-	const listener = onlyScript(doc).listeners.load;
-	if (!listener) throw new Error('no load listener');
-	listener();
-}
+beforeEach(() => vi.clearAllMocks());
 
-function fakeRybbit() {
-	return { identify: vi.fn(), clearUserId: vi.fn() };
-}
-
-const HOST = 'offline-reader.viktorbarzin.me';
-
-beforeEach(() => resetAnalytics());
-
-describe('isProductionHost', () => {
-	it('is the offline-reader host only', () => {
-		expect(PRODUCTION_HOSTS).toEqual([HOST]);
-		expect(isProductionHost(HOST)).toBe(true);
-		expect(isProductionHost('localhost')).toBe(false);
-		expect(isProductionHost(`${HOST}.evil.test`)).toBe(false);
-	});
-});
-
-describe('loadAnalytics', () => {
-	it('adds the Rybbit script on the production host', () => {
-		const doc = fakeDocument();
-		expect(loadAnalytics(doc, HOST, {})).toBe(true);
-		const script = onlyScript(doc);
-		expect(script.src).toBe('/_t/r/script.js');
-		expect(script.defer).toBe(true);
-		expect(script.attributes).toEqual({
-			'data-site-id': '1',
-			'data-replay-mask-all-inputs': 'false',
-			'data-replay-mask-input-options': '{"password":true}'
+describe('startTelemetry', () => {
+	it('starts the package with the signed-in Person from /api/me', () => {
+		expect(startTelemetry({ me: me() }, memoryStorage())).toBe(true);
+		expect(telemetry.initTelemetry).toHaveBeenCalledWith({
+			writeKey: 'wk-1',
+			siteId: SITE_ID,
+			release: '0.1.0',
+			productionHosts: PRODUCTION_HOSTS,
+			personId: PERSON
 		});
+		expect(telemetry.reset).not.toHaveBeenCalled();
 	});
 
-	it('adds nothing anywhere else', () => {
-		const doc = fakeDocument();
-		expect(loadAnalytics(doc, 'localhost', {})).toBe(false);
-		expect(doc.appended).toEqual([]);
+	it('counts the offline-reader host only', () => {
+		expect(PRODUCTION_HOSTS).toEqual(['offline-reader.viktorbarzin.me']);
+		expect(SITE_ID).toBe(1);
 	});
 
-	it('adds it once per page', () => {
-		const doc = fakeDocument();
-		loadAnalytics(doc, HOST, {});
-		loadAnalytics(doc, HOST, {});
-		expect(doc.appended).toHaveLength(1);
-	});
-});
+	it('remembers the settings for a start without an answer', () => {
+		const storage = memoryStorage();
+		startTelemetry({ me: me() }, storage);
+		vi.clearAllMocks();
 
-describe('identifyPerson', () => {
-	it('names the Person once the script is there', () => {
-		const rybbit = fakeRybbit();
-		identifyPerson('uid-1', { rybbit });
-		expect(rybbit.identify).toHaveBeenCalledWith('uid-1');
+		expect(startTelemetry({ offline: true }, storage)).toBe(true);
+		expect(telemetry.initTelemetry).toHaveBeenCalledWith(
+			expect.objectContaining({ writeKey: 'wk-1', personId: undefined })
+		);
+		expect(telemetry.reset).not.toHaveBeenCalled();
 	});
 
-	it('waits for the script when it has not loaded yet', () => {
-		const doc = fakeDocument();
-		const win: AnalyticsWindow = {};
-		loadAnalytics(doc, HOST, win);
-		identifyPerson('uid-1', win);
-		const rybbit = fakeRybbit();
-		win.rybbit = rybbit;
-		fireLoad(doc);
-		expect(rybbit.identify).toHaveBeenCalledWith('uid-1');
+	it('forgets the Person when the SSO session has gone', () => {
+		const storage = memoryStorage({ [SETTINGS_KEY]: JSON.stringify(SETTINGS) });
+		expect(startTelemetry({ signedOut: true }, storage)).toBe(true);
+		expect(telemetry.reset).toHaveBeenCalledTimes(1);
 	});
 
-	it('does nothing without an id', () => {
-		const rybbit = fakeRybbit();
-		identifyPerson(null, { rybbit });
-		expect(rybbit.identify).not.toHaveBeenCalled();
+	it('forgets the Person when /api/me names nobody', () => {
+		startTelemetry({ me: me({ person_id: null }) }, memoryStorage());
+		expect(telemetry.reset).toHaveBeenCalledTimes(1);
 	});
 
-	it('does not name the same Person twice', () => {
-		const rybbit = fakeRybbit();
-		identifyPerson('uid-1', { rybbit });
-		identifyPerson('uid-1', { rybbit });
-		expect(rybbit.identify).toHaveBeenCalledTimes(1);
-	});
-});
-
-describe('clearPerson', () => {
-	it('forgets a Person who was named', () => {
-		const rybbit = fakeRybbit();
-		identifyPerson('uid-1', { rybbit });
-		clearPerson({ rybbit });
-		expect(rybbit.clearUserId).toHaveBeenCalledTimes(1);
+	it('starts nothing, and forgets the settings, while the server has events off', () => {
+		const storage = memoryStorage({ [SETTINGS_KEY]: JSON.stringify(SETTINGS) });
+		expect(startTelemetry({ me: me({ telemetry: null }) }, storage)).toBe(false);
+		expect(telemetry.initTelemetry).not.toHaveBeenCalled();
+		expect(storage.items.has(SETTINGS_KEY)).toBe(false);
 	});
 
-	it('leaves an anonymous visitor alone', () => {
-		const rybbit = fakeRybbit();
-		clearPerson({ rybbit });
-		expect(rybbit.clearUserId).not.toHaveBeenCalled();
+	it('starts nothing before any answer has carried settings', () => {
+		expect(startTelemetry({ offline: true }, memoryStorage())).toBe(false);
+		expect(startTelemetry({ signedOut: true }, memoryStorage())).toBe(false);
+		expect(telemetry.initTelemetry).not.toHaveBeenCalled();
 	});
 
-	it('cancels a pending identify', () => {
-		const doc = fakeDocument();
-		const win: AnalyticsWindow = {};
-		loadAnalytics(doc, HOST, win);
-		identifyPerson('uid-1', win);
-		clearPerson(win);
-		const rybbit = fakeRybbit();
-		win.rybbit = rybbit;
-		fireLoad(doc);
-		expect(rybbit.identify).not.toHaveBeenCalled();
-	});
-});
-
-describe('visitorHeaders', () => {
-	it("names the browser's Rybbit visitor id once the script has made one", () => {
-		const storage = { getItem: (key: string) => (key === 'rybbit-visitor-id' ? 'v-1' : null) };
-		expect(visitorHeaders(storage)).toEqual({ 'X-Visitor-Id': 'v-1' });
+	it('ignores remembered settings it cannot read', () => {
+		const storage = memoryStorage({ [SETTINGS_KEY]: '{"write_key": 4}' });
+		expect(startTelemetry({ offline: true }, storage)).toBe(false);
 	});
 
-	it('is empty before the script has run', () => {
-		expect(visitorHeaders({ getItem: () => null })).toEqual({});
-	});
-
-	it('is empty where storage is blocked or missing', () => {
+	it('still starts where storage is blocked', () => {
 		const blocked = {
 			getItem: (): string | null => {
 				throw new Error('SecurityError');
+			},
+			setItem: (): void => {
+				throw new Error('SecurityError');
+			},
+			removeItem: (): void => {
+				throw new Error('SecurityError');
 			}
 		};
-		expect(visitorHeaders(blocked)).toEqual({});
-		expect(visitorHeaders(undefined)).toEqual({});
+		expect(startTelemetry({ me: me() }, blocked)).toBe(true);
+		expect(startTelemetry({ offline: true }, blocked)).toBe(false);
+	});
+});
+
+describe('browser events', () => {
+	it('meet the naming standard and never repeat a server event', () => {
+		const server = [
+			'capture.requested',
+			'capture.completed',
+			'capture.failed',
+			'capture.refreshed',
+			'capture.deleted',
+			'download.started'
+		];
+		for (const name of EVENTS) {
+			expect(checkEvent(name).problems).toEqual([]);
+			expect(server).not.toContain(name);
+		}
+	});
+
+	it('send what the device saw', () => {
+		downloadCompleted({ page_count: 12, bytes_fetched: 3400, resumed: true, duration_ms: 900 });
+		downloadInterrupted({ pages_done: 3, page_count: 12, reason: 'network' });
+		pageRead({ online: false });
+		expect(telemetry.track.mock.calls).toEqual([
+			[
+				'download.completed',
+				{ page_count: 12, bytes_fetched: 3400, resumed: true, duration_ms: 900 }
+			],
+			['download.interrupted', { pages_done: 3, page_count: 12, reason: 'network' }],
+			['page.read', { online: false }]
+		]);
 	});
 });

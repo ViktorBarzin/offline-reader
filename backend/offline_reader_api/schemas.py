@@ -65,12 +65,21 @@ class CaptureOut(BaseModel):
     updated_at: datetime
 
 
+class BrowserTelemetryOut(BaseModel):
+    """What the PWA starts `@viktorbarzin/telemetry` with (ADR-0007)."""
+
+    write_key: str
+    release: str
+
+
 class MeOut(BaseModel):
     """GET /api/me: the signed-in user, and their Person id for analytics (ADR-0007)."""
 
     username: str
     # The Authentik hashed user id; None with the DEV_USER fallback.
     person_id: str | None
+    # None while product events are off (tests, local runs, no Write key).
+    telemetry: BrowserTelemetryOut | None
 
 
 class ManifestPage(BaseModel):

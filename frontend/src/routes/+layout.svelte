@@ -5,14 +5,16 @@
 	 * app is served same-origin behind SSO; the Library and Reader read from
 	 * IndexedDB and work with the network cut.
 	 *
-	 * On the production host it also loads the Rybbit script and names the
-	 * signed-in Person from `GET /api/me` (ADR-0007). Offline, both fail quietly.
+	 * It also starts telemetry from what `GET /api/me` answers, which names the
+	 * signed-in Person (ADR-0007). Off the production host that loads nothing.
 	 */
 	import { onMount, type Snippet } from 'svelte';
 	import { pwaInfo } from 'virtual:pwa-info';
 
 	import '../app.css';
-	import { clearPerson, identifyPerson, loadAnalytics } from '$lib/analytics';
+	import { isProductionHost } from '@viktorbarzin/telemetry';
+
+	import { PRODUCTION_HOSTS, startTelemetry } from '$lib/analytics';
 	import { api, AuthWallError } from '$lib/api';
 	import { scheduleSwUpdates } from '$lib/pwa';
 
@@ -20,19 +22,17 @@
 
 	const webManifestLink = pwaInfo ? pwaInfo.webManifest.linkTag : '';
 
-	async function namePerson(): Promise<void> {
+	async function startAnalytics(): Promise<void> {
 		try {
-			const me = await api.me();
-			if (me.person_id) identifyPerson(me.person_id, window);
-			else clearPerson(window);
+			startTelemetry({ me: await api.me() });
 		} catch (err) {
-			// The SSO session has gone; offline or any other failure changes nothing.
-			if (err instanceof AuthWallError) clearPerson(window);
+			// The SSO session has gone, or there is no network: start from what was remembered.
+			startTelemetry(err instanceof AuthWallError ? { signedOut: true } : { offline: true });
 		}
 	}
 
 	onMount(async () => {
-		if (loadAnalytics(document, location.hostname, window)) void namePerson();
+		if (isProductionHost(location.hostname, PRODUCTION_HOSTS)) void startAnalytics();
 		if ('serviceWorker' in navigator) {
 			const { registerSW } = await import('virtual:pwa-register');
 			registerSW({

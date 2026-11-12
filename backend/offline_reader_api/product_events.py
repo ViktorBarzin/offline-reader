@@ -58,6 +58,9 @@ EVENTS: tuple[str, ...] = (
 #: The anonymous id of Captures shared from the iOS Shortcut, which has no Person.
 SHORTCUT_ANONYMOUS_ID = "ios-shortcut"
 
+#: The Write key while events are on, for the PWA's own events (``browser_write_key``).
+_browser_write_key: str | None = None
+
 #: Where a Capture was asked for: the PWA, or the iOS Shortcut's /api/ingest.
 Source = Literal["web", "shortcut"]
 #: Where a crawl failed: starting its Job, or the Job itself.
@@ -94,12 +97,25 @@ def start(env: Mapping[str, str], *, client: telemetry.EventClient | None = None
         stop()
         return False
     logger.info("product events %s", "on" if sender.enabled else "off (not production)")
+    global _browser_write_key
+    _browser_write_key = write_key if sender.enabled else None
     return sender.enabled
 
 
 def stop() -> None:
     """Send nothing from here on. For tests, and a start that cannot send."""
+    global _browser_write_key
+    _browser_write_key = None
     telemetry.configure(app=APP, write_key="", release="0", environment="dev")
+
+
+def browser_write_key() -> str | None:
+    """The Write key the PWA sends its own events with, or None while events are off.
+
+    A Write key is not a secret from the browser: it names the app to the Event
+    pipeline, which accepts browser events from production hosts only.
+    """
+    return _browser_write_key
 
 
 def flush() -> None:

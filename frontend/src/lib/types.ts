@@ -20,10 +20,20 @@ export interface Capture {
 	created_at: string;
 }
 
-/** `GET /api/me`: the signed-in user and their Person id (Authentik `uid`). */
+/** What the PWA starts `@viktorbarzin/telemetry` with, from `GET /api/me`. */
+export interface BrowserTelemetry {
+	write_key: string;
+	release: string;
+}
+
+/**
+ * `GET /api/me`: the signed-in user, their Person id (Authentik `uid`), and the
+ * telemetry settings, null while the server has events off.
+ */
 export interface Me {
 	username: string;
 	person_id: string | null;
+	telemetry: BrowserTelemetry | null;
 }
 
 /** One page entry in a capture's manifest (the ordered reader TOC). */

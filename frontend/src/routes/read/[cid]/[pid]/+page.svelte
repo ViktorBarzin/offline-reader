@@ -15,6 +15,7 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 
+	import { pageRead } from '$lib/analytics';
 	import * as db from '$lib/db';
 	import { rewriteLinks } from '$lib/links';
 	import type { StoredCapture } from '$lib/types';
@@ -79,6 +80,7 @@
 			const html = new TextDecoder().decode(new Uint8Array(buf));
 			const appOrigin = browser ? location.origin : '';
 			srcdoc = rewriteLinks(html, { cid: id, pages: c.pages, pageUrl: pg.url, appOrigin });
+			pageRead({ online: navigator.onLine });
 		});
 		return () => {
 			cancelled = true;

@@ -72,3 +72,34 @@ Rybbit user with a country and a device. The PWA's API client sends that id as `
 calls `rybbit.identify(person_id)` on every app start, not only after sign-in. Events outside a
 request (the optional poller) carry the stable `server:offline-reader`; the iOS Shortcut keeps
 `ios-shortcut`.
+
+## Update 2026-11-12: the PWA moves to `@viktorbarzin/telemetry` 0.2.0
+
+The hand-written Rybbit loader in `frontend/src/lib/analytics.ts` is replaced by
+`initTelemetry` from `@viktorbarzin/telemetry/browser`, installed from Forgejo's npm registry
+(`frontend/.npmrc`, app-kit ADR-0003). The package adds the same Rybbit tag, plus a Segment
+client that sends the PWA's own events to `/_t/e/` with offline-reader's Write key.
+
+- `GET /api/me` now also returns `telemetry: {write_key, release}` while the backend has events
+  on (production with a Write key), and `null` otherwise. A Write key is not a secret from the
+  browser: it names the app to the Event pipeline, which takes browser events from production
+  hosts only. With no `telemetry` in the answer the PWA starts nothing.
+- The layout starts telemetry on every app start with `personId` set to `person_id`, so the
+  package identifies the Person in Segment and Rybbit on every signed-in load. The settings are
+  remembered in localStorage (`offline-reader:telemetry`), so an app start the API does not
+  answer still records: offline, the Segment client queues events until it is back online; behind
+  the SSO wall it calls `reset()`, which clears the Person in Segment and Rybbit.
+- `visitorHeaders()` now comes from the package. It returns `{}` until `initTelemetry` has run,
+  so the first `GET /api/me` and the Library list of a start carry no `X-Visitor-Id`. The calls
+  that send server events come from taps after that.
+- The PWA has no browser error reporting; errors stay backend-only.
+
+Browser events record what only the device sees. None repeats a server event:
+
+| Event | Sent from | Properties | Answers |
+|---|---|---|---|
+| `download.completed` | the Library, once every Page of a Capture is in IndexedDB | `page_count`, `bytes_fetched` (this run only), `resumed`, `duration_ms` | whether a Download that `download.started` began reaches the device, and how long it takes |
+| `download.interrupted` | the Library, when a Download stops early | `pages_done`, `page_count`, `reason` (`auth`, `network`) | how often Downloads break, and why |
+| `page.read` | the Reader, each time it shows a Page from the device | `online` | whether Captures are read offline, which is the point of the app |
+
+A `page.read` made offline is queued by the Segment client and sent on a later online start.

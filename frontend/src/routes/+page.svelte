@@ -8,6 +8,7 @@
 	import { onDestroy, onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 
+	import { downloadCompleted, downloadInterrupted } from '$lib/analytics';
 	import { api, AuthWallError } from '$lib/api';
 	import * as db from '$lib/db';
 	import { downloadCapture, type DownloadProgress } from '$lib/download';
@@ -134,18 +135,32 @@
 
 	async function download(c: Row): Promise<void> {
 		downloadErrors = { ...downloadErrors, [c.id]: '' };
-		downloads = { ...downloads, [c.id]: { done: 0, total: c.page_count || 0, bytes: 0 } };
+		let last: DownloadProgress = { done: 0, total: c.page_count || 0, bytes: 0 };
+		downloads = { ...downloads, [c.id]: last };
+		const started = Date.now();
 		try {
 			await downloadCapture(c, {
 				onProgress: (p) => {
+					last = p;
 					downloads = { ...downloads, [c.id]: p };
 				}
 			});
+			downloadCompleted({
+				page_count: last.total,
+				bytes_fetched: last.bytes,
+				resumed: c.storedPages > 0,
+				duration_ms: Date.now() - started
+			});
 		} catch (e) {
+			const auth = e instanceof AuthWallError;
+			downloadInterrupted({
+				pages_done: last.done,
+				page_count: last.total,
+				reason: auth ? 'auth' : 'network'
+			});
 			downloadErrors = {
 				...downloadErrors,
-				[c.id]:
-					e instanceof AuthWallError ? 'Session expired' : 'Download interrupted — tap to resume'
+				[c.id]: auth ? 'Session expired' : 'Download interrupted — tap to resume'
 			};
 		} finally {
 			const next = { ...downloads };

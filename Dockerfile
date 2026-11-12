@@ -1,7 +1,7 @@
 # --- web: build the SvelteKit PWA ---
 FROM node:22 AS web
 WORKDIR /web
-COPY frontend/package.json frontend/package-lock.json ./
+COPY frontend/package.json frontend/package-lock.json frontend/.npmrc ./
 RUN npm ci --include=dev
 COPY frontend/ ./
 RUN npm run build

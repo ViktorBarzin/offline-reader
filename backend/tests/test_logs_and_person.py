@@ -8,8 +8,9 @@ from collections.abc import Iterator
 import pytest
 from fastapi.testclient import TestClient
 
-from offline_reader_api import __version__, logging_setup
+from offline_reader_api import __version__, logging_setup, product_events
 from tests.conftest import auth
+from tests.telemetry_fakes import PRODUCTION, FakeEvents
 
 PERSON = "4f1c2b0e9d8a7f6e5d4c3b2a1f0e9d8c7b6a5f4e3d2c1b0a9f8e7d6c5b4a3f2e"
 
@@ -75,12 +76,34 @@ def test_a_request_from_a_person_names_them_on_its_lines(
 def test_me_names_the_user_and_their_person_id(client: TestClient) -> None:
     response = client.get("/api/me", headers={**auth("viktor"), "X-Authentik-Uid": PERSON})
     assert response.status_code == 200
-    assert response.json() == {"username": "viktor", "person_id": PERSON}
+    assert response.json() == {"username": "viktor", "person_id": PERSON, "telemetry": None}
 
 
 def test_me_without_a_uid_has_no_person_id(client: TestClient) -> None:
     response = client.get("/api/me", headers=auth("viktor"))
-    assert response.json() == {"username": "viktor", "person_id": None}
+    assert response.json() == {"username": "viktor", "person_id": None, "telemetry": None}
+
+
+def test_me_hands_the_browser_the_write_key_while_events_are_on(client: TestClient) -> None:
+    assert product_events.start(PRODUCTION, client=FakeEvents()) is True
+    try:
+        response = client.get("/api/me", headers=auth("viktor"))
+    finally:
+        product_events.stop()
+    assert response.json()["telemetry"] == {
+        "write_key": PRODUCTION["TELEMETRY_WRITE_KEY"],
+        "release": __version__,
+    }
+
+
+def test_me_hands_out_no_write_key_outside_production(client: TestClient) -> None:
+    env = {**PRODUCTION, "TELEMETRY_ENVIRONMENT": "dev"}
+    assert product_events.start(env, client=FakeEvents()) is False
+    try:
+        response = client.get("/api/me", headers=auth("viktor"))
+    finally:
+        product_events.stop()
+    assert response.json()["telemetry"] is None
 
 
 def test_me_needs_the_identity_header(client: TestClient) -> None:
