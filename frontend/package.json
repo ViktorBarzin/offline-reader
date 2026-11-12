@@ -27,7 +27,7 @@
 		"vitest": "^2.1.5"
 	},
 	"dependencies": {
-		"@viktorbarzin/telemetry": "0.2.0",
+		"@viktorbarzin/telemetry": "0.2.1",
 		"idb": "^8.0.3",
 		"workbox-core": "^7.1.0",
 		"workbox-precaching": "^7.1.0",
