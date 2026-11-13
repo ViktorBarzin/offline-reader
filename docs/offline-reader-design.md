@@ -208,8 +208,10 @@ owner-only FastAPI + SvelteKit app served as one image). Two hand-authored files
 - **Deployment** replicas = 1, `strategy { type = "Recreate" }`, `registry-credentials`
   pull secret (public GHCR image → nothing extra), `/healthz` probes, resource limits,
   `lifecycle.ignore_changes` on image + keel annotations.
-- **Ingress** via `modules/kubernetes/ingress_factory`, `auth = "required"`,
-  `allowed_groups = ["Home Server Admins"]` (owner-only Authentik). `dns_type = "proxied"`.
+- **Ingress** via `modules/kubernetes/ingress_factory`: `/api` and `/metrics` use
+  `auth = "required"`, `allowed_groups = ["Home Server Admins"]` (owner-only Authentik);
+  the static app shell on `/` is `auth = "none"` with `strip-auth-headers` (ADR-0008).
+  `dns_type = "proxied"`.
 - **TLS**: `tls_secret_name = var.tls_secret_name`; Kyverno `sync-tls-secret` clones the
   wildcard cert — no cert-manager.
 - **Storage**: `module "nfs_volume"` (`nfs-truenas`, RWX, `/srv/nfs/offline-reader`).

@@ -10,6 +10,7 @@
 
 	import { downloadCompleted, downloadInterrupted } from '$lib/analytics';
 	import { api, AuthWallError } from '$lib/api';
+	import { SIGNIN_URL } from '$lib/config';
 	import * as db from '$lib/db';
 	import { downloadCapture, type DownloadProgress } from '$lib/download';
 	import { formatBytes } from '$lib/format';
@@ -124,10 +125,9 @@
 			include = '';
 			exclude = '';
 		} catch (e) {
+			if (e instanceof AuthWallError) loadError = 'auth';
 			submitError =
-				e instanceof AuthWallError
-					? 'Session expired — reload the app to sign in.'
-					: 'Could not submit — are you online?';
+				e instanceof AuthWallError ? 'Session expired. Sign in, then try again.' : 'Could not submit — are you online?';
 		} finally {
 			submitting = false;
 		}
@@ -153,6 +153,7 @@
 			});
 		} catch (e) {
 			const auth = e instanceof AuthWallError;
+			if (auth) loadError = 'auth';
 			downloadInterrupted({
 				pages_done: last.done,
 				page_count: last.total,
@@ -225,7 +226,10 @@
 		{#if !$online}
 			<div class="inline-banner">Offline — showing captures already on this device.</div>
 		{:else if loadError === 'auth'}
-			<div class="inline-banner">Session expired — reload the app to sign in.</div>
+			<div class="inline-banner">
+				Session expired.
+				<a class="signin" href={SIGNIN_URL} data-sveltekit-reload>Sign in</a>
+			</div>
 		{:else if loadError === 'offline'}
 			<div class="inline-banner">Can’t reach the server — showing downloaded captures only.</div>
 		{/if}
@@ -327,6 +331,12 @@
 <style>
 	.usage {
 		font-size: 13px;
+	}
+
+	.inline-banner .signin {
+		color: inherit;
+		font-weight: 600;
+		text-decoration: underline;
 	}
 
 	.inline-banner {

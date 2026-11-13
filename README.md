@@ -41,4 +41,4 @@ cd frontend && npm run check && npm test && npm run build
 
 GitHub Actions builds `ghcr.io/viktorbarzin/offline-reader` (app) and
 `ghcr.io/viktorbarzin/offline-reader-capture` (capture image); Woodpecker rolls the app.
-Infra stack: `infra/stacks/offline-reader/` (owner-only behind Authentik SSO).
+Infra stack: `infra/stacks/offline-reader/` (`/api` owner-only behind Authentik SSO; the static app shell is public, ADR-0008).

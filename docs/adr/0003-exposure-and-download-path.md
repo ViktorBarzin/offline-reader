@@ -1,6 +1,6 @@
 # 0003 — Public behind SSO; the PWA downloads captures in-app
 
-Status: accepted (download path revised 2026-07-27, see [ADR-0005](0005-build-custom-pwa-single-file.md))
+Status: accepted (download path revised 2026-07-27, see [ADR-0005](0005-build-custom-pwa-single-file.md); the static app shell became public 2026-11-13, see [ADR-0008](0008-public-shell-and-signin-link.md))
 
 The service is exposed publicly at `offline-reader.viktorbarzin.me` behind the standard
 owner-only wall (Traefik + Authentik forward-auth, `auth = "required"`, `allowed_groups`
